@@ -328,15 +328,14 @@ void MavsdkVehicleConnection::setupTruckState()
                     }
                     mTrailerState->setStateInitialized(true);
 
-                    mMavlinkPassthrough->subscribe_message(MAVLINK_MSG_ID_ATTITUDE, [mTruckState, component_id](const mavlink_message_t &message) {
+                    mMavlinkPassthrough->subscribe_message(MAVLINK_MSG_ID_NAMED_VALUE_FLOAT, [mTruckState, component_id](const mavlink_message_t &message) {
                         if (message.compid == component_id) {
-                        mavlink_attitude_t attitude_data;
-                        mavlink_msg_attitude_decode(&message, &attitude_data);
-
-                        // Extract yaw value from attitude message
-                        double angle_in_radians = (mTruckState->getPosition().getYaw() * (M_PI / 180.0)) - attitude_data.yaw;
-                        double angle_in_degrees = angle_in_radians * (180.0 / M_PI);
-                        mTruckState->setTrailerAngle(angle_in_degrees);
+                            mavlink_named_value_float_t mavMsg;
+                            mavlink_msg_named_value_float_decode(&message, &mavMsg);
+                            if (strcmp(mavMsg.name,"TRLR_YAW") == 0) {
+                                mavlink_msg_named_value_float_decode(&message, &mavMsg);
+                                mTruckState->setTrailerAngle(mTruckState->getPosition().getYaw() - mavMsg.value);
+                            }
                         }
                     });
                 }
