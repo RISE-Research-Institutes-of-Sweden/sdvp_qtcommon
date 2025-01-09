@@ -10,12 +10,35 @@
 
 TrailerState::TrailerState(ObjectID_t id, Qt::GlobalColor color) : VehicleState (id, color)
 {
-
-    mLength = 0.96; // griffin specific
-    mWidth = 0.21;  // griffin specific
+    // Default values from Griffin
+    setLength(0.96); // [m]
+    setWidth(0.21); // [m]
+    setWheelBase(0.64); // [m]
 
     ObjectState::setWaywiseObjectType(WAYWISE_OBJECT_TYPE_TRAILER);
 
+}
+
+void TrailerState::setLength(double length)
+{
+    VehicleState::setLength(length);
+
+    xyz_t rearEndOffset = getRearEndOffset();
+    rearEndOffset.x = - length / 2.0;
+    setRearEndOffset(rearEndOffset);
+
+    xyz_t hitchOffset = getHitchOffset();
+    hitchOffset.x = length / 4.0;
+    setHitchOffset(hitchOffset);
+}
+
+void TrailerState::setWheelBase(double value)
+{
+    mWheelBase = value;
+
+    xyz_t rearAxleOffset = getRearAxleOffset();
+    rearAxleOffset.x = - value / 2.0;
+    setRearAxleOffset(rearAxleOffset);
 }
 
 void TrailerState::provideParameters()

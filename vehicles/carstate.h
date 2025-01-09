@@ -33,8 +33,9 @@ public:
     virtual void provideParameters() override;
 
     // Static state
+    virtual void setLength(double length) override;
     double getAxisDistance() const { return fabs(mAxisDistance) < 0.001 ? 0.8*getLength() : mAxisDistance; }
-    void setAxisDistance(double axisDistance) { mAxisDistance = axisDistance; }
+    void setAxisDistance(double axisDistance);
     double getRearOverhang() const { return mRearOverhang; }
     void setRearOverhang(double rearOverhang) { mRearOverhang = rearOverhang; }
     double getFrontOverhang() const { return mFrontOverhang; }

@@ -18,6 +18,25 @@ CarState::CarState(ObjectID_t id, Qt::GlobalColor color) : VehicleState(id, colo
     ObjectState::setWaywiseObjectType(WAYWISE_OBJECT_TYPE_CAR);
 }
 
+void CarState::setLength(double length)
+{
+    VehicleState::setLength(length);
+
+    xyz_t rearEndOffset = getRearEndOffset();
+    rearEndOffset.x = - length / 2.0;
+    setRearEndOffset(rearEndOffset);
+}
+
+void CarState::setAxisDistance(double axisDistance)
+{
+    mAxisDistance = axisDistance;
+
+    xyz_t rearAxleOffset = getRearAxleOffset();
+    rearAxleOffset.x = - axisDistance / 2.0;
+    setRearAxleOffset(rearAxleOffset);
+}
+
+
 #ifdef QT_GUI_LIB
 void CarState::draw(QPainter &painter, const QTransform &drawTrans, const QTransform &txtTrans, bool isSelected)
 {

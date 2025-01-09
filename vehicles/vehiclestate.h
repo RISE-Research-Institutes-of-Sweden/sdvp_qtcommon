@@ -50,13 +50,26 @@ public:
 
     // Static state
     double getLength() const { return mLength; }
-    void setLength(double length) { mLength = length; }
+    virtual void setLength(double length) { mLength = length; }
     double getWidth() const { return mWidth; }
     void setWidth(double width) { mWidth = width; }
     double getMinAcceleration() const { return mMinAcceleration; }
     void setMinAcceleration(double minAcceleration) { mMinAcceleration = minAcceleration; }
     double getMaxAcceleration() const { return mMaxAcceleration; }
     void setMaxAcceleration(double maxAcceleration) { mMaxAcceleration = maxAcceleration; }
+
+    xyz_t getRearAxleOffset() const { return mRearAxleOffset; }
+    void setRearAxleOffset(xyz_t rearAxleOffset) { mRearAxleOffset = rearAxleOffset; }
+    xyz_t getRearEndOffset() const { return mRearEndOffset; }
+    void setRearEndOffset(xyz_t rearEndOffset) { mRearEndOffset = rearEndOffset; }
+    xyz_t getHitchOffset() const { return mHitchOffset; }
+    void setHitchOffset(xyz_t hitchOffset) { mHitchOffset = hitchOffset; }
+    xyz_t getGnssOffset() const { return mGnssOffset; }
+    void setGnssOffset(xyz_t gnssOffset) { mGnssOffset = gnssOffset; }
+    xyz_t getImuOffset() const { return mImuOffset; }
+    void setImuOffset(xyz_t imuOffset) { mImuOffset = imuOffset; }
+    xyz_t getAutopilotCustomReferenceOffset() const { return mAutopilotCustomReferenceOffset; }
+    void setAutopilotCustomReferenceOffset(xyz_t autopilotCustomReferenceOffset) { mAutopilotCustomReferenceOffset = autopilotCustomReferenceOffset; }
 
     // Dynamic state
     virtual PosPoint getPosition(PosType type) const;
@@ -101,6 +114,13 @@ private:
     // TODO: reasonable default values? set here or move?
     double mMinAcceleration = -5.0; // [m/s²]
     double mMaxAcceleration = 3.0; // [m/s²]
+
+    xyz_t mRearAxleOffset;
+    xyz_t mRearEndOffset;
+    xyz_t mHitchOffset;
+    xyz_t mGnssOffset;
+    xyz_t mImuOffset;
+    xyz_t mAutopilotCustomReferenceOffset;
 
     // Dynamic state
     double mSteering = 0.0; // [-1.0:1.0]

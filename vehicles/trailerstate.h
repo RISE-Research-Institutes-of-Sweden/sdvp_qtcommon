@@ -2,7 +2,7 @@
  *     Copyright 2024 RISE Sweden
  *     Published under GPLv3: https://www.gnu.org/licenses/gpl-3.0.html
  *
- * Specialisation of ObjectState for tailer state
+ * Specialisation of VehicleState for tailer state
  */
 
 #ifndef TRAILERSTATE_H
@@ -24,12 +24,9 @@ public:
     TrailerState(ObjectID_t id = 25, Qt::GlobalColor color = Qt::white);
     virtual void provideParameters() override;
 
-    double getLength() const { return mLength; }
-    void setLength(double length) { mLength = length; }
-    double getWidth() const { return mWidth; }
-    void setWidth(double width) { mWidth = width; }
     double getWheelBase() const{ return mWheelBase;}
-    void setWheelBase(double value){ mWheelBase = value;}
+    void setWheelBase(double value);
+    virtual void setLength(double length) override;
 
     // VehicleState interface
     void updateOdomPositionAndYaw(double drivenDistance, PosType usePosType);
@@ -40,14 +37,18 @@ public:
     // drawing functions for trailer (to draw a trailer)
     void drawTrailer(QPainter &painter,const QTransform &drawTrans, const PosPoint &carPos, double angle); // this would called from truck
     virtual void draw(QPainter &painter, const QTransform &drawTrans, const QTransform &txtTrans, bool isSelected = true) override;// if trailer is stand alone (not attached to truck)
+
+    void setStateInitialized(bool value){ stateInitialized = value;}
+    bool isStateInitialized(){ return stateInitialized;}
 #endif
     double mAngle;
 
 private:
-    // Default values from Griffin
-    double mLength = 0.96; // [m]
-    double mWidth = 0.21; // [m]
-    double mWheelBase = 0.64; //[m]
+    double mWheelBase;
+
+#ifdef QT_GUI_LIB
+    bool stateInitialized = false; // whether parameters are setup
+#endif
 };
 
 #endif // TRAILERSTATE_H

@@ -15,6 +15,19 @@ TruckState::TruckState(ObjectID_t id, Qt::GlobalColor color) : CarState(id, colo
     ObjectState::setWaywiseObjectType(WAYWISE_OBJECT_TYPE_TRUCK);
 }
 
+void TruckState::setLength(double length)
+{
+    VehicleState::setLength(length);
+
+    xyz_t rearEndOffset = getRearEndOffset();
+    rearEndOffset.x = - length / 2.0;
+    setRearEndOffset(rearEndOffset);
+
+    xyz_t hitchOffset = getHitchOffset();
+    hitchOffset.x = - length / 4.0;
+    setHitchOffset(hitchOffset);
+}
+
 double TruckState::getCurvatureToPointInVehicleFrame(const QPointF &point)
 {
     if (hasTrailingVehicle())
