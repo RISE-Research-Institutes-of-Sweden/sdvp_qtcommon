@@ -12,7 +12,7 @@
 UbloxRover::UbloxRover(QSharedPointer<VehicleState> vehicleState)
 {
     mVehicleState = vehicleState;
-    mEnuReference = {57.6828, 11.9637, 0}; // AztaZero {57.7810, 12.7692, 0}, Klätterlabbet {57.6876, 11.9807, 0};
+    mEnuReference = vehicleState->getEnuRef();
 
     // Use GNSS reception to update location
     connect(&mUblox, &Ublox::rxNavPvt, this, &UbloxRover::updateGNSSPositionAndYaw);
@@ -268,6 +268,8 @@ void UbloxRover::updateGNSSPositionAndYaw(const ubx_nav_pvt &pvt)
         if (!mEnuReferenceSet) {
             mEnuReference = llh;
             mEnuReferenceSet = true;
+            mVehicleState->setEnuRef(mEnuReference);
+            emit updatedEnuReference(mEnuReference);
         } else
             xyz = coordinateTransforms::llhToEnu(mEnuReference, llh);
 

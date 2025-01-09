@@ -14,6 +14,7 @@ VehicleState::VehicleState(ObjectID_t id, Qt::GlobalColor color)
     mTime = QTime();
     mLength = 0.8;
     mWidth = 0.335;
+    mEnuReference = {57.71495867, 12.89134921, 219.0}; // AztaZero {57.7810, 12.7692, 0}, Klätterlabbet {57.6876, 11.9807, 0};
 
     for (int i = 0; i < (int)PosType::_LAST_; i++)
         switch((PosType) i) {
@@ -83,6 +84,16 @@ PosPoint VehicleState::getHomePosition() const
 void VehicleState::setHomePosition(const PosPoint &homePosition)
 {
     mHomePosition = homePosition;
+}
+
+llh_t VehicleState::getEnuRef() const
+{
+    return mEnuReference;
+}
+
+void VehicleState::setEnuRef(llh_t enuRef)
+{
+    mEnuReference = enuRef;
 }
 
 bool VehicleState::getIsArmed() const

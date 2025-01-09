@@ -33,6 +33,7 @@ signals:
     void updatedGNSSPositionAndYaw(QSharedPointer<VehicleState> vehicleState, double distanceMoved, bool fused);
     void txNavPvt(const ubx_nav_pvt &pvt);
     void gotNmeaGga(const QByteArray& nmeaGgaStr);
+    void updatedEnuReference(llh_t mEnuReference);
 
 private:
     bool configureUblox();

@@ -64,16 +64,14 @@ MavsdkVehicleServer::MavsdkVehicleServer(QSharedPointer<VehicleState> vehicleSta
         mavsdk::TelemetryServer::Position homePositionLlh{};
         mavsdk::TelemetryServer::Position positionLlh{};
 
-        if (!mUbloxRover.isNull()) {
         // publish gpsOrigin
-            sendGpsOriginLlh(mUbloxRover->getEnuRef());
+        sendGpsOriginLlh(mVehicleState->getEnuRef());
 
-        //TODO: homePositionLlh should not be EnuRef
-            homePositionLlh = {mUbloxRover->getEnuRef().latitude, mUbloxRover->getEnuRef().longitude, static_cast<float>(mUbloxRover->getEnuRef().height), 0};
+        llh_t homePosGlobal = coordinateTransforms::enuToLlh(mVehicleState->getEnuRef(), {mVehicleState->getPosition(PosType::fused).getXYZ()});
+        homePositionLlh = {homePosGlobal.latitude, homePosGlobal.longitude, static_cast<float>(homePosGlobal.height), 0};
 
-            llh_t fusedPosGlobal = coordinateTransforms::enuToLlh(mUbloxRover->getEnuRef(), {mVehicleState->getPosition(PosType::fused).getXYZ()});
+        llh_t fusedPosGlobal = coordinateTransforms::enuToLlh(mVehicleState->getEnuRef(), {mVehicleState->getPosition(PosType::fused).getXYZ()});
         positionLlh = {fusedPosGlobal.latitude, fusedPosGlobal.longitude, static_cast<float>(fusedPosGlobal.height), 0};
-        }
 
         mTelemetryServer->publish_position(positionLlh, velocity, heading);
         mTelemetryServer->publish_home(homePositionLlh);

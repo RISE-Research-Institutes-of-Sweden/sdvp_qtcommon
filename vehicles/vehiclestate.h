@@ -96,6 +96,8 @@ public:
     QPointF getAutopilotLookAheadPoint() const { return mAutopilotLookAheadPoint; }
     virtual double getCurvatureToPointInVehicleFrame(const QPointF &point);
     double getCurvatureToPointInENU(const QPointF &point, PosType type);
+    llh_t getEnuRef() const;
+    void setEnuRef(llh_t enuRef);
 
     // A vehicle can have a trailing vehicle
     // what this means needs to be defined in child classes
@@ -145,6 +147,8 @@ private:
 
     std::array<float,3> mGyroscopeXYZ = std::array<float,3>({0.0, 0.0, 0.0}); // [deg/s]
     std::array<float,3> mAccelerometerXYZ = std::array<float,3>({0.0, 0.0, 0.0}); // [g]
+
+    llh_t mEnuReference;
 };
 
 #endif // VEHICLESTATE_H
