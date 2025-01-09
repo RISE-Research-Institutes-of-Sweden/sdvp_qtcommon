@@ -89,6 +89,8 @@ public:
     void setDrawLine(bool drawLine);
     void setAttributes(quint32 attributes);
 
+    void transform(xyz_t offset, double yaw);
+
     // Operators
     PosPoint& operator=(const PosPoint& point);
     bool operator==(const PosPoint& point);

@@ -276,3 +276,14 @@ void PosPoint::setAttributes(quint32 attributes)
 {
     mAttributes = attributes;
 }
+
+void PosPoint::transform(xyz_t offset, double yaw_rad)
+{
+    double cos_yaw = cos(yaw_rad);
+    double sin_yaw = sin(yaw_rad);
+    double dx = offset.x * cos_yaw - offset.y * sin_yaw;
+    double dy = offset.x * sin_yaw + offset.y * cos_yaw;
+    setX(getX() + dx);
+    setY(getY() + dy);
+    setYaw(yaw_rad * 180.0 / M_PI);
+}

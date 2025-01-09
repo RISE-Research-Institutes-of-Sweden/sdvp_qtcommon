@@ -100,6 +100,18 @@ PosPoint VehicleState::getPosition(PosType type) const
     return mPositionBySource[(int)type];
 }
 
+PosPoint VehicleState::getOffsetPosition(xyz_t offset, PosType type) const
+{
+    return getOffsetPosition(offset, getPosition(type).getYaw() * M_PI / 180.0, type);
+}
+
+PosPoint VehicleState::getOffsetPosition(xyz_t offset, double yaw_rad , PosType type) const
+{
+    PosPoint offsetPosition = getPosition(type);
+    offsetPosition.transform(offset, yaw_rad);
+    return offsetPosition;
+}
+
 VehicleState::FlightMode VehicleState::getFlightMode() const
 {
     return mFlightMode;
