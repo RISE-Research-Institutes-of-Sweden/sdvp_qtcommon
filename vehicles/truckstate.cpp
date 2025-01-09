@@ -139,6 +139,14 @@ void TruckState::draw(QPainter &painter, const QTransform &drawTrans, const QTra
 
     double x = pos.getX() * 1000.0;
     double y = pos.getY() * 1000.0;
+    xyz_t rearAxleOffset = getRearAxleOffset();
+    xyz_t rearEndOffset = getRearEndOffset();
+    double rearAxleOffsetX = rearAxleOffset.x * 1000.0;
+    const double rearAxleOffsetY = rearAxleOffset.y * 1000.0;
+    double rearEndOffsetX = rearEndOffset.x * 1000.0;
+    const double wheelbase = getAxisDistance() * 1000.0;
+    PosPoint hitchPos = getOffsetPosition(getHitchOffset());
+
     painter.setTransform(drawTrans);
 
     QColor col_wheels;
@@ -146,7 +154,8 @@ void TruckState::draw(QPainter &painter, const QTransform &drawTrans, const QTra
     QColor col_ap;
     QColor col_sigma = Qt::red;
     QColor col_hull = getColor();
-    QColor col_center = Qt::blue;
+    QColor col_center = Qt::red;
+    QColor col_hitch = Qt::magenta;
 
     if (isSelected) {
         col_wheels = Qt::black;
@@ -167,55 +176,51 @@ void TruckState::draw(QPainter &painter, const QTransform &drawTrans, const QTra
     }
 
     // Draw truck
-    painter.setBrush(QBrush(col_wheels));
     painter.save();
     painter.translate(x, y);
     painter.rotate(pos.getYaw());
-    // Wheels
-    painter.drawRoundedRect(-truck_len / 12.0,-(truck_w / 2), truck_len / 6.0, truck_w, truck_corner / 3, truck_corner / 3);
-    painter.drawRoundedRect(truck_len - truck_len / 2.5,-(truck_w / 2), truck_len / 9.0, truck_w, truck_corner / 3, truck_corner / 3);
+    // Rear axle wheels
+    double wheel_diameter = truck_len / 6.0;
+    double wheel_width = truck_w / 12.0;
+    painter.setBrush(QBrush(col_wheels));
+    painter.drawRoundedRect(rearAxleOffsetX - wheel_diameter/2, rearAxleOffsetY - (truck_w / 2 + wheel_width / 2), wheel_diameter, (truck_w + wheel_width), truck_corner / 3, truck_corner / 3);
+    // Front axle wheels
+    wheel_diameter = truck_len / 10.0;
+    painter.drawRoundedRect(rearAxleOffsetX + wheelbase - wheel_diameter/2, -(truck_w / 2 + wheel_width / 2), wheel_diameter, (truck_w + wheel_width), truck_corner / 3, truck_corner / 3);
     // Front bumper
     painter.setBrush(col_bumper);
-    painter.drawRoundedRect(-truck_len / 6.0, -((truck_w - truck_len / 20.0) / 2.0), truck_len, truck_w - truck_len / 20.0, truck_corner, truck_corner);
+    painter.drawRoundedRect(rearEndOffsetX, -((truck_w - truck_len / 20.0) / 2.0), truck_len, truck_w - truck_len / 20.0, truck_corner, truck_corner);
     // Hull
     painter.setBrush(col_hull);
-    painter.drawRoundedRect(-truck_len / 6.0, -((truck_w - truck_len / 20.0) / 2.0), truck_len - (truck_len / 20.0), truck_w - truck_len / 20.0, truck_corner, truck_corner);
+    painter.drawRoundedRect(rearEndOffsetX, -((truck_w - truck_len / 20.0) / 2.0), truck_len - (truck_len / 20.0), truck_w - truck_len / 20.0, truck_corner, truck_corner);
 
     if (hasTrailingVehicle())
-        getTrailingVehicle()->drawTrailer(painter, drawTrans, pos, getTrailerAngleDegrees());
+    {
+        getTrailingVehicle()->drawTrailer(painter, drawTrans);
+    }
 
     painter.restore();
 
     painter.setBrush(col_center);
     painter.drawEllipse(QPointF(x, y), truck_w / 15.0, truck_w / 15.0);
+    if (hasTrailingVehicle())
+    {
+        painter.setBrush(col_hitch);
+        painter.drawEllipse(QPointF(hitchPos.getX()*1000.0, hitchPos.getY()*1000.0), truck_w / 20.0, truck_w / 20.0);
+    }
 
-    // Turning radius of truck
-    painter.setPen(QPen(Qt::blue, 30));
-    painter.setBrush(Qt::transparent);
-
-    painter.drawEllipse(QPointF(x, y), getAutopilotRadius()*1000.0, getAutopilotRadius()*1000.0);
-    painter.setPen(Qt::black);
     // Turning radius
+    if (getAutopilotRadius() >0.001){
+        painter.setPen(QPen(Qt::blue, 30));
+        painter.setBrush(Qt::transparent);
+        painter.drawEllipse(QPointF(x, y), getAutopilotRadius()*1000.0, getAutopilotRadius()*1000.0);
 
-    // TODO: needs cleanup
-    double trailerYaw = 0.0, dx = 0.0, dy = 0.0;
-    if (hasTrailingVehicle()) {
-        double trailerAngle  = getTrailerAngleRadians();
-        double currYaw_rad = getPosition().getYaw() * (M_PI/180.0);
-        double trailerYaw = currYaw_rad- trailerAngle;
-        double trailerAxis = getTrailingVehicle()->getWheelBase();
-        double dx = trailerAxis * cos(trailerYaw);
-        double dy = trailerAxis * sin(trailerYaw);
-        double newX = (pos.getX() - dx) *1000.0;
-        double newY = ( pos.getY() - dy) *1000.0;
-
-        painter.setBrush(Qt::darkMagenta);
-        painter.drawEllipse(QPointF(newX, newY), truck_w / 15.0, truck_w / 15.0);
         painter.setPen(QPen(Qt::darkMagenta, 20));
         painter.setBrush(Qt::transparent);
-        painter.drawEllipse(QPointF(newX, newY), getAutopilotRadius()*1000.0, getAutopilotRadius()*1000.0);
-        painter.setPen(Qt::black);
+        PosPoint trailerPos = getTrailingVehicle()->getPosition();
+        painter.drawEllipse(QPointF(trailerPos.getX()*1000.0, trailerPos.getY()*1000.0), getAutopilotRadius()*1000.0, getAutopilotRadius()*1000.0);
     }
+    painter.setPen(Qt::black);
 
     if (getDrawStatusText()) {
         // Print data
@@ -249,9 +254,10 @@ void TruckState::draw(QPainter &painter, const QTransform &drawTrans, const QTra
                   << "State: " << (getIsArmed() ? "armed" : "disarmed") << Qt::endl
                   << flightModeStr << Qt::endl << Qt::endl;
         if (hasTrailingVehicle()) {
+            PosPoint trailerPos = getTrailingVehicle()->getPosition();
             txtStream << getTrailingVehicle()->getName() << Qt::endl
-                    << "(" << pos.getX()- dx << ", " << pos.getY()- dy << ", " << pos.getHeight() << ", "
-                    << trailerYaw * (180.0/M_PI)<< ")" << Qt::endl;
+                    << "(" << trailerPos.getX() << ", " << trailerPos.getY() << ", " << trailerPos.getHeight() << ", "
+                    << trailerPos.getYaw()<< ")" << Qt::endl;
         }
         pt_txt.setX(x + truck_w + truck_len * ((cos(getPosition().getYaw() * (M_PI/180.0)) + 1) / 3));
         pt_txt.setY(y);

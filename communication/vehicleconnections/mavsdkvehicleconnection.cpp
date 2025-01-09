@@ -326,9 +326,10 @@ void MavsdkVehicleConnection::setupTruckState()
                     if (trailerParamResult.first == VehicleConnection::Result::Success) {
                         mTrailerState->setWheelBase(trailerParamResult.second);
                     }
+                    mTrailerState->setStateInitialized(true);
 
                     mMavlinkPassthrough->subscribe_message(MAVLINK_MSG_ID_ATTITUDE, [mTruckState, component_id](const mavlink_message_t &message) {
-                    if (message.compid == component_id) {
+                        if (message.compid == component_id) {
                         mavlink_attitude_t attitude_data;
                         mavlink_msg_attitude_decode(&message, &attitude_data);
 
@@ -336,8 +337,8 @@ void MavsdkVehicleConnection::setupTruckState()
                         double angle_in_radians = (mTruckState->getPosition().getYaw() * (M_PI / 180.0)) - attitude_data.yaw;
                         double angle_in_degrees = angle_in_radians * (180.0 / M_PI);
                         mTruckState->setTrailerAngle(angle_in_degrees);
-                    }
-                });
+                        }
+                    });
                 }
             });
         }
