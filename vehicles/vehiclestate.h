@@ -90,6 +90,10 @@ public:
     void setIsArmed(bool isArmed);
     void setAutopilotRadius(double radius);
     double getAutopilotRadius();
+    void setAutopilotReferencePoint(QPointF autopilotReferencePoint) { mAutopilotReferencePoint = autopilotReferencePoint; }
+    QPointF getAutopilotReferencePoint() const { return mAutopilotReferencePoint; }
+    void setAutopilotLookAheadPoint(QPointF autopilotLookAheadPoint) { mAutopilotLookAheadPoint = autopilotLookAheadPoint; }
+    QPointF getAutopilotLookAheadPoint() const { return mAutopilotLookAheadPoint; }
     virtual double getCurvatureToPointInVehicleFrame(const QPointF &point);
     double getCurvatureToPointInENU(const QPointF &point, PosType type);
 
@@ -134,6 +138,8 @@ private:
     bool mIsArmed = false;
     FlightMode mFlightMode = FlightMode::Unknown;
     double mAutopilotRadius = 0;
+    QPointF mAutopilotReferencePoint;
+    QPointF mAutopilotLookAheadPoint;
 
     QSharedPointer<VehicleState> mTrailingVehicle;
 
