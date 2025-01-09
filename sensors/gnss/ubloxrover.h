@@ -28,7 +28,6 @@ public:
     void writeOdoToUblox(ubx_esf_datatype_enum dataType, uint32_t dataField);
     void saveOnShutdown();
     void setIMUOrientationOffset(double roll_deg, double pitch_deg, double yaw_deg);
-    void setGNSSPositionOffset(double xOffset, double yOffset);
 
 signals:
     void updatedGNSSPositionAndYaw(QSharedPointer<VehicleState> vehicleState, double distanceMoved, bool fused);
@@ -48,7 +47,6 @@ private:
     Ublox mUblox;
     QSharedPointer<VehicleState> mVehicleState;
     struct {double rollOffset_deg, pitchOffset_deg, yawOffset_deg;} mIMUOrientationOffset;
-    xyz_t mGNSSPositionOffset = {0.0, 0.0, 0.0};
 };
 
 #endif // UBLOXROVER_H
