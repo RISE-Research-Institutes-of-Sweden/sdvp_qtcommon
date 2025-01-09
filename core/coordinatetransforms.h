@@ -23,6 +23,41 @@ struct xyz_t {
     double x;
     double y;
     double z;
+
+    // Vector addition operator overload
+    xyz_t operator+(const xyz_t& other) const {
+        return {x + other.x, y + other.y, z + other.z};
+    }
+
+    // Scalar addition operator overload
+    xyz_t operator+(const double scalar) const {
+        return {x + scalar, y + scalar, z + scalar};
+    }
+
+    // Friend function for scalar addition from the left
+    friend xyz_t operator+(const double scalar, const xyz_t& vec) {
+        return vec + scalar;
+    }
+
+    // Vector subtraction operator overload
+    xyz_t operator-(const xyz_t& other) const {
+        return {x - other.x, y - other.y, z - other.z};
+    }
+
+    // Scalar subtraction operator overload
+    xyz_t operator-(const double scalar) const {
+        return {x - scalar, y - scalar, z - scalar};
+    }
+
+    // Friend function for scalar subtraction from the left
+    friend xyz_t operator-(const double scalar, const xyz_t& vec) {
+        return xyz_t{scalar, scalar, scalar} - vec;
+    }
+
+    // Unary minus operator overload
+    xyz_t operator-() const {
+        return {-x, -y, -z};
+    }
 };
 
 namespace coordinateTransforms {

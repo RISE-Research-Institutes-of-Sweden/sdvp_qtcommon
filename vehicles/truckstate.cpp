@@ -63,28 +63,24 @@ void TruckState::setSimulateTrailer(bool simulateTrailer)
 void TruckState::updateTrailingVehicleOdomPositionAndYaw(double drivenDistance, PosType usePosType)
 {
     if(hasTrailingVehicle()) {
-        auto hitchPosition = getPosition(usePosType);
+        PosPoint truckHitchPosition = getOffsetPosition(getHitchOffset(), usePosType);
         QSharedPointer<TrailerState> trailer = getTrailingVehicle();
         PosPoint currentTrailerPosition = trailer->getPosition(usePosType);
 
-        double currYaw_rad = hitchPosition.getYaw() * M_PI / 180.0;
+        double currYaw_rad = truckHitchPosition.getYaw() * M_PI / 180.0;
 
-        double trailerYaw_rad = getTrailingVehicle()->getPosition(usePosType).getYaw() * M_PI / 180.0;
+        double trailerYaw_rad = trailer->getPosition(usePosType).getYaw() * M_PI / 180.0;
         if (mSimulateTrailer) { // We do not get external updates on the trailer angle -> simple estimation
-            trailerYaw_rad = trailerYaw_rad + ((drivenDistance / getTrailingVehicle()->getWheelBase()) * sin(currYaw_rad - trailerYaw_rad));
-            trailerYaw_rad = fmod(trailerYaw_rad + M_PI, 2 * M_PI) - M_PI;
+            trailerYaw_rad = trailerYaw_rad + ((drivenDistance / trailer->getWheelBase()) * sin(currYaw_rad - trailerYaw_rad));
+            trailerYaw_rad = std::clamp(fmod(trailerYaw_rad + M_PI, 2 * M_PI) - M_PI, -2 * M_PI / 3.0, 2 * M_PI / 3.0);
             setTrailerAngle((currYaw_rad - trailerYaw_rad) * 180.0 / M_PI);
         } else {
             trailerYaw_rad = currYaw_rad - getTrailerAngleRadians();
             trailerYaw_rad = fmod(trailerYaw_rad + M_PI, 2 * M_PI) - M_PI;
         }
-
-        double delta_x = (trailer->getWheelBase()) * cos(trailerYaw_rad); // trailer x difference from x of the truck wheelbase
-        double delta_y = (trailer->getWheelBase()) * sin(trailerYaw_rad); // trailer y difference from y of the truck wheelbase
-
-        currentTrailerPosition.setX(hitchPosition.getX() - delta_x);
-        currentTrailerPosition.setY(hitchPosition.getY() - delta_y);
-        currentTrailerPosition.setYaw(trailerYaw_rad * 180.0 / M_PI);
+        currentTrailerPosition.setXYZ(truckHitchPosition.getXYZ());
+        xyz_t trailingVehicleHitchOffset = getTrailingVehicle()->getHitchOffset();
+        currentTrailerPosition.transform(-trailingVehicleHitchOffset, trailerYaw_rad);
         currentTrailerPosition.setTime(QTime::currentTime().addSecs(-QDateTime::currentDateTime().offsetFromUtc()));
         trailer->setPosition(currentTrailerPosition);
     }
