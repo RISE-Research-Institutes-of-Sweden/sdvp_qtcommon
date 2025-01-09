@@ -18,10 +18,11 @@
 #include "communication/vehicleconnections/vehicleconnection.h"
 #include "autopilot/waypointfollower.h"
 
-enum class WayPointFollowerSTMstates {NONE, FOLLOW_ROUTE_INIT, FOLLOW_ROUTE_GOTO_BEGIN, FOLLOW_ROUTE_FOLLOWING, FOLLOW_ROUTE_FINISHED};
+enum class WayPointFollowerSTMstates {NONE, FOLLOW_ROUTE_INIT, FOLLOW_ROUTE_GOTO_BEGIN, FOLLOW_ROUTE_FOLLOWING, FOLLOW_ROUTE_APPROACHING_GOAL, FOLLOW_ROUTE_FINISHED};
 struct WayPointFollowerState {
     WayPointFollowerSTMstates stmState = WayPointFollowerSTMstates::NONE;
     PosPoint currentGoal;
+    QPointF startPointXY;
     int currentWaypointIndex;
     bool adaptivePurePursuitRadius = false;
     double purePursuitRadius = 1.0;
@@ -32,6 +33,8 @@ struct WayPointFollowerState {
     // -- for flying vehicles
     double overrideAltitude = 0.0;
 };
+
+enum class WayPointFollowerTrackingType {CENTER, REAR_AXLE, FRONT_REAR_END, CUSTOM_REFERENCE};
 
 class PurepursuitWaypointFollower : public WaypointFollower
 {
@@ -48,6 +51,13 @@ public:
     void setAdaptivePurePursuitRadiusActive(bool adaptive);
     double getAdaptivePurePursuitRadiusCoefficient();
     void setAdaptivePurePursuitRadiusCoefficient(double coefficient);
+
+    bool getRetryAfterGoalOvershot() const {return mRetryAfterGoalOvershot;};
+    void setRetryAfterGoalOvershot(bool value) { mRetryAfterGoalOvershot = value; };
+    double getXYGoalThreshold() const {return mXYGoalThreshold;};
+    void setXYGoalThreshold(double value) { mXYGoalThreshold = value; };
+    WayPointFollowerTrackingType getTrackingType() const {return mTrackingType;};
+    void setTrackingType(WayPointFollowerTrackingType value) { mTrackingType = value; };
 
     virtual bool getRepeatRoute() const override;
     virtual void setRepeatRoute(bool value) override;
@@ -89,6 +99,11 @@ private:
     void holdPosition();
     void calculateDistanceOfRouteLeft(QPointF currentVehiclePositionXY);
     double purePursuitRadius();
+
+    bool mRetryAfterGoalOvershot = false;
+    QPointF purePursuitTrackingPoint();
+    double mXYGoalThreshold = 0.25; //[m]
+    WayPointFollowerTrackingType mTrackingType = WayPointFollowerTrackingType::REAR_AXLE;
 };
 
 #endif // PUREPURSUITWAYPOINTFOLLOWER_H

@@ -37,6 +37,8 @@ public:
     void sendGpsOriginLlh(const llh_t &gpsOriginLlh) override;
     void mavResult(const uint16_t command, MAV_RESULT result, MAV_COMPONENT compId);
     void on_logSent(const QString& message, const quint8& severity);
+    void setRawGps(const mavsdk::TelemetryServer::RawGps rawGps) { mRawGps = rawGps; }
+    void setGpsInfo(const mavsdk::TelemetryServer::GpsInfo gpsInfo) { mGpsInfo = gpsInfo; }
 
 private:
     std::shared_ptr<mavsdk::Mavsdk> mMavsdk;

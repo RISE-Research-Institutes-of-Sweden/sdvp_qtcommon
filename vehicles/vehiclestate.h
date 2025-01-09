@@ -50,7 +50,7 @@ public:
 
     // Static state
     double getLength() const { return mLength; }
-    void setLength(double length) { mLength = length; }
+    virtual void setLength(double length) { mLength = length; }
     double getWidth() const { return mWidth; }
     void setWidth(double width) { mWidth = width; }
     double getMinAcceleration() const { return mMinAcceleration; }
@@ -58,9 +58,25 @@ public:
     double getMaxAcceleration() const { return mMaxAcceleration; }
     void setMaxAcceleration(double maxAcceleration) { mMaxAcceleration = maxAcceleration; }
 
+    xyz_t getRearAxleOffset() const { return mRearAxleOffset; }
+    void setRearAxleOffset(xyz_t rearAxleOffset) { mRearAxleOffset = rearAxleOffset; }
+    xyz_t getRearEndOffset() const { return mRearEndOffset; }
+    void setRearEndOffset(xyz_t rearEndOffset) { mRearEndOffset = rearEndOffset; }
+    xyz_t getHitchOffset() const { return mHitchOffset; }
+    void setHitchOffset(xyz_t hitchOffset) { mHitchOffset = hitchOffset; }
+    xyz_t getGnssOffset() const { return mGnssOffset; }
+    void setGnssOffset(xyz_t gnssOffset) { mGnssOffset = gnssOffset; }
+    xyz_t getImuOffset() const { return mImuOffset; }
+    void setImuOffset(xyz_t imuOffset) { mImuOffset = imuOffset; }
+    xyz_t getAutopilotCustomReferenceOffset() const { return mAutopilotCustomReferenceOffset; }
+    void setAutopilotCustomReferenceOffset(xyz_t autopilotCustomReferenceOffset) { mAutopilotCustomReferenceOffset = autopilotCustomReferenceOffset; }
+
     // Dynamic state
     virtual PosPoint getPosition(PosType type) const;
     virtual PosPoint getPosition() const override { return getPosition(PosType::simulated); }
+    virtual PosPoint getOffsetPosition(xyz_t offset, PosType type) const;
+    virtual PosPoint getOffsetPosition(xyz_t offset) const { return getOffsetPosition(offset, PosType::simulated); }
+    virtual PosPoint getOffsetPosition(xyz_t offset, double yaw_rad , PosType type) const;
     virtual void setPosition(PosPoint &point) override;
     virtual QTime getTime() const override { return mTime; }
     virtual void setTime(const QTime &time) override { mTime = time; }
@@ -74,8 +90,14 @@ public:
     void setIsArmed(bool isArmed);
     void setAutopilotRadius(double radius);
     double getAutopilotRadius();
+    void setAutopilotReferencePoint(QPointF autopilotReferencePoint) { mAutopilotReferencePoint = autopilotReferencePoint; }
+    QPointF getAutopilotReferencePoint() const { return mAutopilotReferencePoint; }
+    void setAutopilotLookAheadPoint(QPointF autopilotLookAheadPoint) { mAutopilotLookAheadPoint = autopilotLookAheadPoint; }
+    QPointF getAutopilotLookAheadPoint() const { return mAutopilotLookAheadPoint; }
     virtual double getCurvatureToPointInVehicleFrame(const QPointF &point);
     double getCurvatureToPointInENU(const QPointF &point, PosType type);
+    llh_t getEnuRef() const;
+    void setEnuRef(llh_t enuRef);
 
     // A vehicle can have a trailing vehicle
     // what this means needs to be defined in child classes
@@ -102,6 +124,13 @@ private:
     double mMinAcceleration = -5.0; // [m/s²]
     double mMaxAcceleration = 3.0; // [m/s²]
 
+    xyz_t mRearAxleOffset;
+    xyz_t mRearEndOffset;
+    xyz_t mHitchOffset;
+    xyz_t mGnssOffset;
+    xyz_t mImuOffset;
+    xyz_t mAutopilotCustomReferenceOffset;
+
     // Dynamic state
     double mSteering = 0.0; // [-1.0:1.0]
     PosPoint mPositionBySource[(int)PosType::_LAST_];
@@ -111,11 +140,15 @@ private:
     bool mIsArmed = false;
     FlightMode mFlightMode = FlightMode::Unknown;
     double mAutopilotRadius = 0;
+    QPointF mAutopilotReferencePoint;
+    QPointF mAutopilotLookAheadPoint;
 
     QSharedPointer<VehicleState> mTrailingVehicle;
 
     std::array<float,3> mGyroscopeXYZ = std::array<float,3>({0.0, 0.0, 0.0}); // [deg/s]
     std::array<float,3> mAccelerometerXYZ = std::array<float,3>({0.0, 0.0, 0.0}); // [g]
+
+    llh_t mEnuReference;
 };
 
 #endif // VEHICLESTATE_H

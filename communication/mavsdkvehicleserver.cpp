@@ -64,16 +64,14 @@ MavsdkVehicleServer::MavsdkVehicleServer(QSharedPointer<VehicleState> vehicleSta
         mavsdk::TelemetryServer::Position homePositionLlh{};
         mavsdk::TelemetryServer::Position positionLlh{};
 
-        if (!mUbloxRover.isNull()) {
-            // publish gpsOrigin
-            sendGpsOriginLlh(mUbloxRover->getEnuRef());
+        // publish gpsOrigin
+        sendGpsOriginLlh(mVehicleState->getEnuRef());
 
-            //TODO: homePositionLlh should not be EnuRef
-            homePositionLlh = {mUbloxRover->getEnuRef().latitude, mUbloxRover->getEnuRef().longitude, static_cast<float>(mUbloxRover->getEnuRef().height), 0};
+        llh_t homePosGlobal = coordinateTransforms::enuToLlh(mVehicleState->getEnuRef(), {mVehicleState->getPosition(PosType::fused).getXYZ()});
+        homePositionLlh = {homePosGlobal.latitude, homePosGlobal.longitude, static_cast<float>(homePosGlobal.height), 0};
 
-            llh_t fusedPosGlobal = coordinateTransforms::enuToLlh(mUbloxRover->getEnuRef(), {mVehicleState->getPosition(PosType::fused).getXYZ()});
-            positionLlh = {fusedPosGlobal.latitude, fusedPosGlobal.longitude, static_cast<float>(fusedPosGlobal.height), 0};
-        }
+        llh_t fusedPosGlobal = coordinateTransforms::enuToLlh(mVehicleState->getEnuRef(), {mVehicleState->getPosition(PosType::fused).getXYZ()});
+        positionLlh = {fusedPosGlobal.latitude, fusedPosGlobal.longitude, static_cast<float>(fusedPosGlobal.height), 0};
 
         mTelemetryServer->publish_position(positionLlh, velocity, heading);
         mTelemetryServer->publish_home(homePositionLlh);
@@ -373,6 +371,51 @@ MavsdkVehicleServer::MavsdkVehicleServer(QSharedPointer<VehicleState> vehicleSta
             }) != mavsdk::MavlinkPassthrough::Result::Success)
                     qWarning() << "Could not send Autopilot Radius via MAVLINK.";
         });
+
+    // Publish Autopilot lookahead and reference points
+    connect(&mPublishMavlinkTimer, &QTimer::timeout, [this]() {
+        if (mMavlinkPassthrough->queue_message([&](MavlinkAddress mavlink_address, uint8_t channel) {
+            mavlink_message_t mavMsg;
+            mavlink_position_target_local_ned_t autopilotPoints;
+
+            memset(&autopilotPoints, 0, sizeof(mavlink_position_target_local_ned_t));
+
+            autopilotPoints.time_boot_ms = QDateTime::currentMSecsSinceEpoch() - mMavsdkVehicleServerCreationTime.toMSecsSinceEpoch();
+
+            QPointF lookAheadPoint = mVehicleState->getAutopilotLookAheadPoint();
+            autopilotPoints.x = lookAheadPoint.x();
+            autopilotPoints.y = lookAheadPoint.y();
+
+            QPointF refPoint = mVehicleState->getAutopilotReferencePoint(); // using velocity fields to send reference point
+            autopilotPoints.vx = refPoint.x();
+            autopilotPoints.vy = refPoint.y();
+
+            autopilotPoints.type_mask = POSITION_TARGET_TYPEMASK_Z_IGNORE|
+                                    POSITION_TARGET_TYPEMASK_VX_IGNORE | // masking velocity fields as a safety measure
+                                    POSITION_TARGET_TYPEMASK_VY_IGNORE |
+                                    POSITION_TARGET_TYPEMASK_VZ_IGNORE |
+                                    POSITION_TARGET_TYPEMASK_AX_IGNORE |
+                                    POSITION_TARGET_TYPEMASK_AY_IGNORE |
+                                    POSITION_TARGET_TYPEMASK_AZ_IGNORE |
+                                    POSITION_TARGET_TYPEMASK_YAW_IGNORE |
+                                    POSITION_TARGET_TYPEMASK_YAW_RATE_IGNORE;
+
+            mavlink_address.system_id = mSystemId;
+            mavlink_address.component_id = MAV_COMP_ID_AUTOPILOT1;
+
+            // Encode and send the POSITION_TARGET_LOCAL_NED message
+            mavlink_msg_position_target_local_ned_encode_chan(mavlink_address.system_id,
+                                                            mavlink_address.component_id,
+                                                            channel,
+                                                            &mavMsg,
+                                                            &autopilotPoints);
+
+            return mavMsg;
+        }) != mavsdk::MavlinkPassthrough::Result::Success)
+            qWarning() << "Could not send Autopilot Reference Point via MAVLINK.";
+    });
+
+
     });
 
     mMavsdk->intercept_outgoing_messages_async([this](mavlink_message_t &message){
@@ -767,31 +810,23 @@ void MavsdkVehicleServer::createMavsdkComponentForTrailer(const QHostAddress con
         qDebug() << "Trailer component listening for MAVSDK connection.";
 
         connect(&mPublishMavlinkTimer, &QTimer::timeout, [this](){
-            if (mTrailerMavlinkPassthrough) {
-                mTrailerMavlinkPassthrough->queue_message(
-                    [this](MavlinkAddress mavlink_address, uint8_t channel)->mavlink_message_t {
-                        auto trailerState = mVehicleState->getTrailingVehicle();
-                        mavlink_message_t trailerYawMsg;
+            if (mTrailerMavlinkPassthrough && mTrailerMavlinkPassthrough->queue_message(
+                [this](MavlinkAddress mavlink_address, uint8_t channel)->mavlink_message_t {
+                    auto trailerState = mVehicleState->getTrailingVehicle();
+                    mavlink_message_t trailerYawMsg;
+                    mavlink_named_value_float_t trailerYaw;
 
-                        mavlink_address.system_id = mVehicleState->getId();
-                        mavlink_address.component_id = mVehicleState->getTrailingVehicle()->getId();
+                    trailerYaw.time_boot_ms = QDateTime::currentMSecsSinceEpoch() - mMavsdkVehicleServerCreationTime.toMSecsSinceEpoch();
+                    trailerYaw.value = trailerState->getPosition(PosType::fused).getYaw();
+                    mavlink_address.system_id = mVehicleState->getId();
+                    mavlink_address.component_id = mVehicleState->getTrailingVehicle()->getId();
 
-                        mavlink_msg_attitude_pack_chan(
-                            mavlink_address.system_id,
-                            mavlink_address.component_id,
-                            channel,
-                            &trailerYawMsg,
-                            0.0,            // time_boot_ms (not used)
-                            0.0,            // roll (not used)
-                            0.0,            // pitch (not used)
-                            trailerState->getPosition(PosType::fused).getYaw() * (M_PI / 180.0),   // yaw
-                            0.0,            // rollspeed (not used)
-                            0.0,            // pitchspeed (not used)
-                            0.0             // yawspeed (not used)
-                            );
-                        return trailerYawMsg;
-                    });
-            }
+                    strcpy(trailerYaw.name, "TRLR_YAW");
+                    mavlink_msg_named_value_float_encode_chan(mavlink_address.system_id, mavlink_address.component_id, channel, &trailerYawMsg, &trailerYaw);
+
+                    return trailerYawMsg;
+                }) != mavsdk::MavlinkPassthrough::Result::Success)
+                    qWarning() << "Could not send Trailer Yaw via MAVLINK.";
         });
     }
 }

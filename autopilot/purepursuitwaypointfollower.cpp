@@ -44,7 +44,45 @@ void PurepursuitWaypointFollower::addWaypoint(const PosPoint &point)
 
 void PurepursuitWaypointFollower::addRoute(const QList<PosPoint> &route)
 {
-    mWaypointList.append(route);
+    if (route.isEmpty()) {
+        return;
+    }
+
+    if (!isActive()) {
+        mWaypointList.clear();
+        mWaypointList.append(route);
+    } else {
+        // Calculate closest point on new route to current vehicle position
+        QPointF currentVehiclePositionXY = purePursuitTrackingPoint();
+
+        int closestPointIndex = 0;
+        double minDistance = std::numeric_limits<double>::max();
+
+        for (int i = 0; i < route.size(); i++) {
+            double distance = QLineF(currentVehiclePositionXY, route[i].getPoint()).length();
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestPointIndex = i;
+            }
+        }
+        // Truncate the current route and append the new route from closest point onwards
+        mWaypointList = mWaypointList.mid(0, mCurrentState.currentWaypointIndex);
+        mWaypointList.append(route.mid(closestPointIndex));
+
+        // Update current waypoint index
+        while (mCurrentState.currentWaypointIndex < mWaypointList.size()) {
+            if (QLineF(currentVehiclePositionXY, mWaypointList.at(mCurrentState.currentWaypointIndex).getPoint()).length() >= purePursuitRadius()) {
+                break;
+            }
+            mCurrentState.currentWaypointIndex++;
+        }
+        if (mCurrentState.currentWaypointIndex >= mWaypointList.size()) {
+            mCurrentState.currentWaypointIndex--;
+            mCurrentState.stmState = WayPointFollowerSTMstates::FOLLOW_ROUTE_APPROACHING_GOAL;
+        } else {
+            mCurrentState.stmState = WayPointFollowerSTMstates::FOLLOW_ROUTE_FOLLOWING;
+        }
+    }
 }
 
 void PurepursuitWaypointFollower::startFollowingRoute(bool fromBeginning)
@@ -77,7 +115,9 @@ void PurepursuitWaypointFollower::holdPosition()
 
 void PurepursuitWaypointFollower::stop()
 {
-    mUpdateStateTimer.stop();
+    if (mUpdateStateTimer.isActive()) {
+        mUpdateStateTimer.stop();
+    }
     mVehicleState->setAutopilotRadius(0);
     holdPosition();
     emit deactivateEmergencyBrake();
@@ -88,13 +128,12 @@ void PurepursuitWaypointFollower::resetState()
     mUpdateStateTimer.stop();
     mCurrentState.stmState = WayPointFollowerSTMstates::NONE;
     mCurrentState.currentWaypointIndex = mWaypointList.size();
+    mCurrentState.startPointXY = QPointF();
 }
 
 void PurepursuitWaypointFollower::updateState()
 {
-    QPointF currentVehiclePositionXY = mVehicleState->getPosition(mPosTypeUsed).getPoint();
-    if (mVehicleState->hasTrailingVehicle() && mVehicleState->getSpeed() < 0) // position defined by trailer when backing (if exists)
-        currentVehiclePositionXY = mVehicleState->getTrailingVehicle()->getPosition(mPosTypeUsed).getPoint();
+    QPointF currentVehiclePositionXY = purePursuitTrackingPoint();
 
     switch (mCurrentState.stmState) {
     case WayPointFollowerSTMstates::NONE:
@@ -107,6 +146,7 @@ void PurepursuitWaypointFollower::updateState()
             mCurrentState.currentWaypointIndex = 0;
             mCurrentState.currentGoal = mWaypointList.at(0);
             mCurrentState.stmState = WayPointFollowerSTMstates::FOLLOW_ROUTE_GOTO_BEGIN;
+            mCurrentState.startPointXY = currentVehiclePositionXY;
         } else
             mCurrentState.stmState = WayPointFollowerSTMstates::FOLLOW_ROUTE_FINISHED;
         break;
@@ -121,9 +161,14 @@ void PurepursuitWaypointFollower::updateState()
         if (intersections.size()) {
             mCurrentState.currentGoal.setXY(intersections[0].x(), intersections[0].y());
             updateControl(mCurrentState.currentGoal);
-        } else // first waypoint within circle -> start route
-            mCurrentState.stmState = WayPointFollowerSTMstates::FOLLOW_ROUTE_FOLLOWING;
-
+        } else { // first waypoint within circle -> start route
+            if (mWaypointList.size() > 1) {
+                mCurrentState.stmState = WayPointFollowerSTMstates::FOLLOW_ROUTE_FOLLOWING;
+            } else {
+                mCurrentState.stmState = WayPointFollowerSTMstates::FOLLOW_ROUTE_APPROACHING_GOAL;
+                // qDebug() << "Approaching goal";
+            }
+        }
     } break;
 
     case WayPointFollowerSTMstates::FOLLOW_ROUTE_FOLLOWING: {
@@ -133,9 +178,11 @@ void PurepursuitWaypointFollower::updateState()
         if (QLineF(currentVehiclePositionXY, currentWaypointPoint).length() < purePursuitRadius()) // consider previous waypoint as reached
             mCurrentState.currentWaypointIndex++;
 
-        if (mCurrentState.currentWaypointIndex == mWaypointList.size() && !mCurrentState.repeatRoute)
-                mCurrentState.stmState = WayPointFollowerSTMstates::FOLLOW_ROUTE_FINISHED;
-        else {
+        if (mCurrentState.currentWaypointIndex == mWaypointList.size()) {
+            mCurrentState.currentWaypointIndex--;
+            mCurrentState.stmState = WayPointFollowerSTMstates::FOLLOW_ROUTE_APPROACHING_GOAL;
+            // qDebug() << "Approaching goal";
+        } else {
             // --- Calculate current goal on route (which lies between two waypoints)
             // 1. Find intersection between circle around vehicle and route
             // look a number of points ahead and jump forward on route, if applicable
@@ -210,10 +257,52 @@ void PurepursuitWaypointFollower::updateState()
             updateControl(mCurrentState.currentGoal);
         }
     } break;
+    case WayPointFollowerSTMstates::FOLLOW_ROUTE_APPROACHING_GOAL: {
+        const PosPoint& goalPosPoint = mWaypointList.at(mCurrentState.currentWaypointIndex);
+        QPointF goalPosPointXY = goalPosPoint.getPoint();
+        QLineF carToGoalline(currentVehiclePositionXY, goalPosPointXY);
+        double distanceToGoal = carToGoalline.length();
+        if (distanceToGoal < mXYGoalThreshold) {
+            if (!mCurrentState.repeatRoute) {
+                mCurrentState.stmState = WayPointFollowerSTMstates::FOLLOW_ROUTE_FINISHED;
+                qDebug() << "Goal reached with accuracy:" << distanceToGoal << "m.";
+            } else {
+                qDebug() << "Goal reached with accuracy:" << distanceToGoal << "m. Repeating the route...";
+            }
+        } else {
+            QLineF lastWayPointToGoalline;
+            lastWayPointToGoalline.setP2(goalPosPointXY);
+            if (mCurrentState.currentWaypointIndex) {
+                lastWayPointToGoalline.setP1(mWaypointList[mCurrentState.currentWaypointIndex - 1].getPoint());
+            } else {
+                lastWayPointToGoalline.setP1(mCurrentState.startPointXY);
+            }
+            double angleBetweenLines = carToGoalline.angleTo(lastWayPointToGoalline);
+            if (angleBetweenLines > 180) { // Convert to -180 to 180 range
+                angleBetweenLines -= 360;
+            }
 
+            if (fabs(angleBetweenLines) >= 90 && !mRetryAfterGoalOvershot) {
+                stop();
+                qDebug() << "Goal overshot! Stopped waypoint follower with distance to goal:" << distanceToGoal << "m.";
+                return;
+            } else {
+                double purePursuitRadius_ = purePursuitRadius();
+                double extensionDistance = std::clamp(purePursuitRadius_ - distanceToGoal, 0.0, purePursuitRadius_);
+                double extensionRatio = (extensionDistance + lastWayPointToGoalline.length()) / lastWayPointToGoalline.length();
+                QPointF extendedGoalPoint = lastWayPointToGoalline.pointAt(extensionRatio);
+
+                mCurrentState.currentGoal.setX(extendedGoalPoint.x());
+                mCurrentState.currentGoal.setY(extendedGoalPoint.y());
+                mCurrentState.currentGoal.setSpeed(goalPosPoint.getSpeed());
+                updateControl(mCurrentState.currentGoal);
+            }
+        }
+    } break;
     case WayPointFollowerSTMstates::FOLLOW_ROUTE_FINISHED:
         mCurrentState.stmState = WayPointFollowerSTMstates::NONE;
         mCurrentState.currentWaypointIndex = mWaypointList.size();
+        mCurrentState.startPointXY = QPointF();
         stop();
         break;
 
@@ -228,6 +317,8 @@ void PurepursuitWaypointFollower::updateControl(const PosPoint &goal)
         mMovementController->setDesiredSteeringCurvature(mVehicleState->getCurvatureToPointInENU(goal.getPoint(), mPosTypeUsed));
         mMovementController->setDesiredSpeed(goal.getSpeed());
         mMovementController->setDesiredAttributes(goal.getAttributes());
+
+        mVehicleState->setAutopilotLookAheadPoint(goal.getPoint());
     } else {
         // NOTE: we calculate in ENU coordinates
         xyz_t positionDifference = {goal.getX() - mVehicleConnection->getVehicleState()->getPosition(mPosTypeUsed).getX(),
@@ -331,4 +422,36 @@ void PurepursuitWaypointFollower::setAdaptivePurePursuitRadiusActive(bool adapti
 QList<PosPoint> PurepursuitWaypointFollower::getCurrentRoute()
 {
     return mWaypointList;
+}
+
+QPointF PurepursuitWaypointFollower::purePursuitTrackingPoint()
+{
+    QSharedPointer<VehicleState> trackingVehicleState = mVehicleState;
+    if (mVehicleState->hasTrailingVehicle() && mVehicleState->getSpeed() < 0) { // position defined by trailer when backing (if exists)
+        trackingVehicleState = mVehicleState->getTrailingVehicle();
+    }
+
+    PosPoint referencePosPoint;
+    switch (mTrackingType) {
+        case WayPointFollowerTrackingType::REAR_AXLE: {
+            referencePosPoint = trackingVehicleState->getOffsetPosition(trackingVehicleState->getRearAxleOffset(), mPosTypeUsed);
+        } break;
+        case WayPointFollowerTrackingType::FRONT_REAR_END: {
+            xyz_t offset = trackingVehicleState->getRearEndOffset();
+            if(mVehicleState->getSpeed() >= 0) {
+                offset.x += trackingVehicleState->getLength();
+            }
+            referencePosPoint = trackingVehicleState->getOffsetPosition(offset, mPosTypeUsed);
+        } break;
+        case WayPointFollowerTrackingType::CUSTOM_REFERENCE: {
+            referencePosPoint = trackingVehicleState->getOffsetPosition(trackingVehicleState->getAutopilotCustomReferenceOffset(), mPosTypeUsed);
+        } break;
+        default:{
+            referencePosPoint = trackingVehicleState->getPosition(mPosTypeUsed);
+        } break;
+    }
+
+    mVehicleState->setAutopilotReferencePoint(referencePosPoint.getPoint());
+
+    return mVehicleState->getAutopilotReferencePoint();
 }

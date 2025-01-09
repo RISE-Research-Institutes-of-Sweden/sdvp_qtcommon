@@ -2,3 +2,6 @@ tools/MAVSDK
 
 # Build folders
 build
+
+# VS Code files
+*.vscode

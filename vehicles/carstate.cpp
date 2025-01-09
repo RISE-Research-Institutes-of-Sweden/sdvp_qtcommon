@@ -18,11 +18,29 @@ CarState::CarState(ObjectID_t id, Qt::GlobalColor color) : VehicleState(id, colo
     ObjectState::setWaywiseObjectType(WAYWISE_OBJECT_TYPE_CAR);
 }
 
+void CarState::setLength(double length)
+{
+    VehicleState::setLength(length);
+
+    xyz_t rearEndOffset = getRearEndOffset();
+    rearEndOffset.x = - length / 2.0;
+    setRearEndOffset(rearEndOffset);
+}
+
+void CarState::setAxisDistance(double axisDistance)
+{
+    mAxisDistance = axisDistance;
+
+    xyz_t rearAxleOffset = getRearAxleOffset();
+    rearAxleOffset.x = - axisDistance / 2.0;
+    setRearAxleOffset(rearAxleOffset);
+}
+
+
 #ifdef QT_GUI_LIB
 void CarState::draw(QPainter &painter, const QTransform &drawTrans, const QTransform &txtTrans, bool isSelected)
 {
     PosPoint pos = getPosition();
-    //        LocPoint pos_gps = VehicleState->getLocationGps();
 
     const double car_len = getLength() * 1000.0;
     const double car_w = getWidth() * 1000.0;
@@ -30,8 +48,13 @@ void CarState::draw(QPainter &painter, const QTransform &drawTrans, const QTrans
 
     double x = pos.getX() * 1000.0;
     double y = pos.getY() * 1000.0;
-    //        double x_gps = pos_gps.getX() * 1000.0;
-    //        double y_gps = pos_gps.getY() * 1000.0;
+    xyz_t rearAxleOffset = getRearAxleOffset();
+    xyz_t rearEndOffset = getRearEndOffset();
+    double rearAxleOffsetX = rearAxleOffset.x * 1000.0;
+    const double rearAxleOffsetY = rearAxleOffset.y * 1000.0;
+    double rearEndOffsetX = rearEndOffset.x * 1000.0;
+    const double wheelbase = getAxisDistance() * 1000.0;
+
     painter.setTransform(drawTrans);
 
     QColor col_wheels;
@@ -40,7 +63,6 @@ void CarState::draw(QPainter &painter, const QTransform &drawTrans, const QTrans
     QColor col_sigma = Qt::red;
     QColor col_hull = getColor();
     QColor col_center = Qt::blue;
-    //        QColor col_gps = Qt::magenta;
 
     if (isSelected) {
         col_wheels = Qt::black;
@@ -61,19 +83,22 @@ void CarState::draw(QPainter &painter, const QTransform &drawTrans, const QTrans
     }
 
     // Draw car
-    painter.setBrush(QBrush(col_wheels));
     painter.save();
     painter.translate(x, y);
     painter.rotate(pos.getYaw());
-    // Wheels
-    painter.drawRoundedRect(-car_len / 12.0,-(car_w / 2), car_len / 6.0, car_w, car_corner / 3, car_corner / 3);
-    painter.drawRoundedRect(car_len - car_len / 2.5,-(car_w / 2), car_len / 6.0, car_w, car_corner / 3, car_corner / 3);
+    // Rear axle wheels
+    const double wheel_diameter = car_len / 6.0;
+    const double wheel_width = car_w / 12.0;
+    painter.setBrush(QBrush(col_wheels));
+    painter.drawRoundedRect(rearAxleOffsetX - wheel_diameter/2, rearAxleOffsetY - (car_w / 2 + wheel_width / 2), wheel_diameter, (car_w + wheel_width), car_corner / 3, car_corner / 3);
+    // Front axle wheels
+    painter.drawRoundedRect(rearAxleOffsetX + wheelbase - wheel_diameter/2, -(car_w / 2 + wheel_width / 2), wheel_diameter, (car_w + wheel_width), car_corner / 3, car_corner / 3);
     // Front bumper
     painter.setBrush(col_bumper);
-    painter.drawRoundedRect(-car_len / 6.0, -((car_w - car_len / 20.0) / 2.0), car_len, car_w - car_len / 20.0, car_corner, car_corner);
+    painter.drawRoundedRect(rearEndOffsetX, -((car_w - car_len / 20.0) / 2.0), car_len, car_w - car_len / 20.0, car_corner, car_corner);
     // Hull
     painter.setBrush(col_hull);
-    painter.drawRoundedRect(-car_len / 6.0, -((car_w - car_len / 20.0) / 2.0), car_len - (car_len / 20.0), car_w - car_len / 20.0, car_corner, car_corner);
+    painter.drawRoundedRect(rearEndOffsetX, -((car_w - car_len / 20.0) / 2.0), car_len - (car_len / 20.0), car_w - car_len / 20.0, car_corner, car_corner);
     painter.restore();
 
     // Center
@@ -81,9 +106,19 @@ void CarState::draw(QPainter &painter, const QTransform &drawTrans, const QTrans
     painter.drawEllipse(QPointF(x, y), car_w / 15.0, car_w / 15.0);
 
     // Turning radius
-    painter.setPen(QPen(Qt::red, 40));
-    painter.setBrush(Qt::transparent);
-    painter.drawEllipse(QPointF(x, y), getAutopilotRadius()*1000.0, getAutopilotRadius()*1000.0);
+    if (getAutopilotRadius() > 0.001){
+        painter.setBrush(Qt::black);
+        QPointF autopilotReferencePoint = getAutopilotReferencePoint();
+        painter.drawEllipse(QPointF(autopilotReferencePoint.x()*1000.0, autopilotReferencePoint.y()*1000.0), car_len / 22.0, car_len / 22.0);
+
+        painter.setPen(QPen(Qt::red, 40));
+        painter.setBrush(Qt::transparent);
+        painter.drawEllipse(QPointF(autopilotReferencePoint.x()*1000.0, autopilotReferencePoint.y()*1000.0), getAutopilotRadius()*1000.0, getAutopilotRadius()*1000.0);
+
+        painter.setBrush(Qt::darkMagenta);
+        QPointF autopilotLookAheadPoint = getAutopilotLookAheadPoint();
+        painter.drawEllipse(QPointF(autopilotLookAheadPoint.x()*1000.0, autopilotLookAheadPoint.y()*1000.0), car_len / 20.0, car_len / 20.0);
+    }
     painter.setPen(Qt::black);
 
     //        // GPS Location
