@@ -373,6 +373,51 @@ MavsdkVehicleServer::MavsdkVehicleServer(QSharedPointer<VehicleState> vehicleSta
             }) != mavsdk::MavlinkPassthrough::Result::Success)
                     qWarning() << "Could not send Autopilot Radius via MAVLINK.";
         });
+
+    // Publish Autopilot lookahead and reference points
+    connect(&mPublishMavlinkTimer, &QTimer::timeout, [this]() {
+        if (mMavlinkPassthrough->queue_message([&](MavlinkAddress mavlink_address, uint8_t channel) {
+            mavlink_message_t mavMsg;
+            mavlink_position_target_local_ned_t autopilotPoints;
+
+            memset(&autopilotPoints, 0, sizeof(mavlink_position_target_local_ned_t));
+
+            autopilotPoints.time_boot_ms = QDateTime::currentMSecsSinceEpoch() - mMavsdkVehicleServerCreationTime.toMSecsSinceEpoch();
+
+            QPointF lookAheadPoint = mVehicleState->getAutopilotLookAheadPoint();
+            autopilotPoints.x = lookAheadPoint.x();
+            autopilotPoints.y = lookAheadPoint.y();
+
+            QPointF refPoint = mVehicleState->getAutopilotReferencePoint(); // using velocity fields to send reference point
+            autopilotPoints.vx = refPoint.x();
+            autopilotPoints.vy = refPoint.y();
+
+            autopilotPoints.type_mask = POSITION_TARGET_TYPEMASK_Z_IGNORE|
+                                    POSITION_TARGET_TYPEMASK_VX_IGNORE | // masking velocity fields as a safety measure
+                                    POSITION_TARGET_TYPEMASK_VY_IGNORE |
+                                    POSITION_TARGET_TYPEMASK_VZ_IGNORE |
+                                    POSITION_TARGET_TYPEMASK_AX_IGNORE |
+                                    POSITION_TARGET_TYPEMASK_AY_IGNORE |
+                                    POSITION_TARGET_TYPEMASK_AZ_IGNORE |
+                                    POSITION_TARGET_TYPEMASK_YAW_IGNORE |
+                                    POSITION_TARGET_TYPEMASK_YAW_RATE_IGNORE;
+
+            mavlink_address.system_id = mSystemId;
+            mavlink_address.component_id = MAV_COMP_ID_AUTOPILOT1;
+
+            // Encode and send the POSITION_TARGET_LOCAL_NED message
+            mavlink_msg_position_target_local_ned_encode_chan(mavlink_address.system_id,
+                                                            mavlink_address.component_id,
+                                                            channel,
+                                                            &mavMsg,
+                                                            &autopilotPoints);
+
+            return mavMsg;
+        }) != mavsdk::MavlinkPassthrough::Result::Success)
+            qWarning() << "Could not send Autopilot Reference Point via MAVLINK.";
+    });
+
+
     });
 
     mMavsdk->intercept_outgoing_messages_async([this](mavlink_message_t &message){

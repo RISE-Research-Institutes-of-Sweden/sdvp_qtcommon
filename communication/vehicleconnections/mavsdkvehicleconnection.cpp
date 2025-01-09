@@ -271,6 +271,16 @@ MavsdkVehicleConnection::MavsdkVehicleConnection(std::shared_ptr<mavsdk::System>
         }
     });
 
+    // Autopilot Reference Point
+    mMavlinkPassthrough->subscribe_message(MAVLINK_MSG_ID_POSITION_TARGET_LOCAL_NED, [this](const mavlink_message_t &mavMsg) {
+        mavlink_position_target_local_ned_t autopilotPoints;
+        mavlink_msg_position_target_local_ned_decode(&mavMsg, &autopilotPoints);
+        QPointF autopilotLookAheadPoint(autopilotPoints.x, autopilotPoints.y);
+        mVehicleState->setAutopilotLookAheadPoint(autopilotLookAheadPoint);
+        QPointF autopilotReferencePoint(autopilotPoints.vx, autopilotPoints.vy);
+        mVehicleState->setAutopilotReferencePoint(autopilotReferencePoint);
+    });
+
     // Set up action plugin
     mAction.reset(new mavsdk::Action(mSystem));
 

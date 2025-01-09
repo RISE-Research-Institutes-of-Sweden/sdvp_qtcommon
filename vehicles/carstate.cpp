@@ -107,11 +107,19 @@ void CarState::draw(QPainter &painter, const QTransform &drawTrans, const QTrans
 
     // Turning radius
     if (getAutopilotRadius() > 0.001){
+        painter.setBrush(Qt::black);
+        QPointF autopilotReferencePoint = getAutopilotReferencePoint();
+        painter.drawEllipse(QPointF(autopilotReferencePoint.x()*1000.0, autopilotReferencePoint.y()*1000.0), car_len / 22.0, car_len / 22.0);
+
         painter.setPen(QPen(Qt::red, 40));
         painter.setBrush(Qt::transparent);
-        painter.drawEllipse(QPointF(x, y), getAutopilotRadius()*1000.0, getAutopilotRadius()*1000.0);
-        painter.setPen(Qt::black);
+        painter.drawEllipse(QPointF(autopilotReferencePoint.x()*1000.0, autopilotReferencePoint.y()*1000.0), getAutopilotRadius()*1000.0, getAutopilotRadius()*1000.0);
+
+        painter.setBrush(Qt::darkMagenta);
+        QPointF autopilotLookAheadPoint = getAutopilotLookAheadPoint();
+        painter.drawEllipse(QPointF(autopilotLookAheadPoint.x()*1000.0, autopilotLookAheadPoint.y()*1000.0), car_len / 20.0, car_len / 20.0);
     }
+    painter.setPen(Qt::black);
 
     //        // GPS Location
     //        painter.setBrush(col_gps);

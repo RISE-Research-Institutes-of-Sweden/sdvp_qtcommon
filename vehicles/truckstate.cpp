@@ -211,14 +211,17 @@ void TruckState::draw(QPainter &painter, const QTransform &drawTrans, const QTra
 
     // Turning radius
     if (getAutopilotRadius() >0.001){
-        painter.setPen(QPen(Qt::blue, 30));
-        painter.setBrush(Qt::transparent);
-        painter.drawEllipse(QPointF(x, y), getAutopilotRadius()*1000.0, getAutopilotRadius()*1000.0);
+        painter.setBrush(Qt::black);
+        QPointF autopilotReferencePoint = getAutopilotReferencePoint();
+        painter.drawEllipse(QPointF(autopilotReferencePoint.x()*1000.0, autopilotReferencePoint.y()*1000.0), truck_w / 22.0, truck_w / 22.0);
 
-        painter.setPen(QPen(Qt::darkMagenta, 20));
+        painter.setPen(QPen(Qt::black, 30));
         painter.setBrush(Qt::transparent);
-        PosPoint trailerPos = getTrailingVehicle()->getPosition();
-        painter.drawEllipse(QPointF(trailerPos.getX()*1000.0, trailerPos.getY()*1000.0), getAutopilotRadius()*1000.0, getAutopilotRadius()*1000.0);
+        painter.drawEllipse(QPointF(autopilotReferencePoint.x()*1000.0, autopilotReferencePoint.y()*1000.0), getAutopilotRadius()*1000.0, getAutopilotRadius()*1000.0);
+
+        painter.setBrush(Qt::darkMagenta);
+        QPointF autopilotLookAheadPoint = getAutopilotLookAheadPoint();
+        painter.drawEllipse(QPointF(autopilotLookAheadPoint.x()*1000.0, autopilotLookAheadPoint.y()*1000.0), truck_w / 20.0, truck_w / 20.0);
     }
     painter.setPen(Qt::black);
 
