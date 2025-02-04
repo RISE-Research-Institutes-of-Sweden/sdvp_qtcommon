@@ -1,5 +1,5 @@
 /*
- *     Copyright 2022 RISE Research Institutes of Sweden AB, Safety and Transport   waywise@ri.se
+ *     Copyright 2025 RISE Research Institutes of Sweden AB, Safety and Transport   waywise@ri.se
  *     Published under GPLv3: https://www.gnu.org/licenses/gpl-3.0.html
  */
 
@@ -204,3 +204,18 @@ void DriveUI::on_pollENUrefButton_clicked()
         mCurrentVehicleConnection->pollCurrentENUreference();
 }
 
+void DriveUI::on_lowGearButton_clicked()
+{
+    const int gpioPin = ui->pinSpinBox->value();
+
+    if (mCurrentVehicleConnection)
+        mCurrentVehicleConnection->requestGearSwitch(gpioPin, VehicleConnection::Gearbox::lowGear);
+}
+
+void DriveUI::on_highGearButton_clicked()
+{
+    const int gpioPin = ui->pinSpinBox->value();
+
+    if (mCurrentVehicleConnection)
+        mCurrentVehicleConnection->requestGearSwitch(gpioPin, VehicleConnection::Gearbox::highGear);
+}

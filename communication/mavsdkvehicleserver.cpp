@@ -1,14 +1,17 @@
 /*
- *     Copyright 2022 RISE Research Institutes of Sweden AB, Safety and Transport   waywise@ri.se
+ *     Copyright 2025 RISE Research Institutes of Sweden AB, Safety and Transport   waywise@ri.se
  *     Published under GPLv3: https://www.gnu.org/licenses/gpl-3.0.html
  */
 
-#include "mavsdkvehicleserver.h"
 #include <QDebug>
 #include <QMetaMethod>
 #include <future>
 #include <algorithm>
 #include <chrono>
+#include <gpiod.hpp>
+#include <unistd.h>
+
+#include "mavsdkvehicleserver.h"
 #include "logger/logger.h"
 #include "communication/parameterserver.h"
 
@@ -295,6 +298,49 @@ MavsdkVehicleServer::MavsdkVehicleServer(QSharedPointer<VehicleState> vehicleSta
     // Create mavlinkpassthrough plugin (TODO: should not be used on vehicle side...)
     mMavsdk->subscribe_on_new_system([this](){
         mMavlinkPassthrough.reset(new mavsdk::MavlinkPassthrough(mMavsdk->systems().at(0)));
+
+        mMavlinkPassthrough->subscribe_message(MAVLINK_MSG_ID_COMMAND_INT, [this](const mavlink_message_t &message) {
+
+            if(mavlink_msg_command_int_get_command(&message) == MAV_CMD_DO_SET_SERVO) {
+
+                mavlink_command_int_t cmd;
+                mavlink_msg_command_int_decode(&message, &cmd);
+
+                /*
+                 * Shuttle prototype GPIO configuration
+                 *  Pin 22: High/low gear
+                 *  Pin 27: T-lock servo (back)
+                */
+                unsigned int line_num = static_cast<int>(cmd.param1);
+                int gear_pwm = static_cast<int>(cmd.param2);
+
+                if(gear_pwm < 1000 || gear_pwm > 2000) {
+                    mavResult(MAV_CMD_DO_SET_SERVO, MAV_RESULT_DENIED, MAV_COMP_ID_AUTOPILOT1);
+                } else {
+                    gpiod::chip chip;
+                    QString chipName = "gpiochip4"; // Raspberry Pi 5
+                    gpiod::line gearSwitch;
+
+                    try {
+                        chip.open(chipName.toStdString(), 3);
+                        gearSwitch = chip.get_line(line_num);
+                        gearSwitch.request({"servo", gpiod::line_request::DIRECTION_OUTPUT, 0});
+
+                    } catch (const std::exception &e) {
+                        qDebug() << "Error: " << e.what();
+                    }
+
+                    for(int i = 0; i < 50; ++i) {   // 50 pulses for 1 second (20ms period)
+                        gearSwitch.set_value(1);
+                        usleep(gear_pwm);
+                        gearSwitch.set_value(0);
+                        usleep(20000 - gear_pwm);
+                        mavResult(MAV_CMD_DO_SET_SERVO, MAV_RESULT_ACCEPTED, MAV_COMP_ID_AUTOPILOT1);
+                    }
+                    gearSwitch.release();
+                }
+            }
+        });
 
         mMavlinkPassthrough->subscribe_message(MAVLINK_MSG_ID_COMMAND_LONG, [this](const mavlink_message_t &message) {
             switch (mavlink_msg_command_long_get_command(&message)) {

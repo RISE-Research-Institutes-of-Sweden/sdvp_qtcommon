@@ -242,6 +242,46 @@
         </layout>
        </widget>
       </item>
+      <item>
+       <widget class="QGroupBox" name="gearboxGroupBox">
+        <property name="title">
+         <string>Gearbox (PWM-controlled servo motors)</string>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_7">
+         <item>
+          <widget class="QLabel" name="pinLabel">
+           <property name="text">
+            <string>GPIO Pin:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSpinBox" name="pinSpinBox">
+           <property name="minimum">
+            <number>1</number>
+           </property>
+           <property name="maximum">
+            <number>40</number>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="lowGearButton">
+           <property name="text">
+            <string>Low</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="highGearButton">
+           <property name="text">
+            <string>High</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
